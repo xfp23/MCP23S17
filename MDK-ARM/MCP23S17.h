@@ -69,6 +69,20 @@ do                                  \
         return state;               \
 } while (0)
 
+
+typedef enum
+{
+    MCP23S17_GPIO_NUM_0 = (1 << 0),
+    MCP23S17_GPIO_NUM_1 = (1 << 1),
+    MCP23S17_GPIO_NUM_2 = (1 << 2),
+    MCP23S17_GPIO_NUM_3 = (1 << 3),
+    MCP23S17_GPIO_NUM_4 = (1 << 4),
+    MCP23S17_GPIO_NUM_5 = (1 << 5),
+    MCP23S17_GPIO_NUM_6 = (1 << 6),
+    MCP23S17_GPIO_NUM_7 = (1 << 7),
+} MCP23S17_GPIO_NUM_t; // 含掩码
+
+
 typedef enum
 {
     MCP23S17_IODIRA = 0x00,
@@ -77,9 +91,10 @@ typedef enum
     // MCP23S17_IPOLB = 0x03,
     // MCP23S17_GPINTENA = 0x04,
     // MCP23S17_GPINTENB = 0x05,
-    MCP23S17_DEFVALA,
+
+    MCP23S17_DEFVALA = 0x06,
     MCP23S17_DEFVALB,
-    MCP23S17_INTCONA,
+    MCP23S17_INTCONA = 0x08,
     MCP23S17_INTCONB,
     MCP23S17_IOCON,
     MCP23S17_GPPUA = 0X0C,
@@ -122,7 +137,7 @@ typedef enum
 {
     MCP23S17_IPOLA = 0x02,
     MCP23S17_IPOLB = 0x03,
-}MCP23S17_IPOLx_t;
+}MCP23S17_IPOLx_t; // 设置极性端口
 
 typedef enum
 {
@@ -137,6 +152,18 @@ typedef enum
 } MCP23S17_InterruptEnable_t;
 
 
+typedef enum
+{
+    MCP23S17_INT_TRIGGER_EDGE      = 0, // 双沿触发
+    MCP23S17_INT_TRIGGER_HIGH     = 1, // 高电平触发
+    MCP23S17_INT_TRIGGER_LOW      = 2, // 低电平触发
+}MCP23S17_InterruptMode_t ;
+
+typedef enum
+{
+MCP23S17_PULLUP_DISABLE,
+MCP23S17_PULLUP_ENABLE,
+}MCP23S17_PullMode_t;
 /**
  * @brief | 配置                  | 含义                          | 行为                                         |
 | ------------------- | --------------------------- | ------------------------------------------ |
@@ -146,21 +173,14 @@ typedef enum
  */
 typedef struct 
 {
+    uint8_t gpio; // 引脚
+    MCP23S17_Interruptx_t port; // 端口
+    MCP23S17_InterruptEnable_t inter; // 中断使能
+    MCP23S17_InterruptMode_t mode; // 模式
+    MCP23S17_PullMode_t pull;
+}MCP23S17_Interrupt_conf_t; // 中断配置
 
-}MCP23S17_Interrupt_conf_t;
-
-typedef enum
-{
-    MCP23S17_GPIO_NUM_0 = (1 << 0),
-    MCP23S17_GPIO_NUM_1 = (1 << 1),
-    MCP23S17_GPIO_NUM_2 = (1 << 2),
-    MCP23S17_GPIO_NUM_3 = (1 << 3),
-    MCP23S17_GPIO_NUM_4 = (1 << 4),
-    MCP23S17_GPIO_NUM_5 = (1 << 5),
-    MCP23S17_GPIO_NUM_6 = (1 << 6),
-    MCP23S17_GPIO_NUM_7 = (1 << 7),
-} MCP23S17_GPIO_NUM_t; // 含掩码
-
+typedef void (*MCP23S17_INTCallback_t)(uint8_t gpio_mask);
 
 typedef struct
 {
@@ -181,18 +201,21 @@ typedef union
     };
 } MCP23S17_Command_t;
 
-// typedef union
-// {
-//     uint8_t flag;
-//     struct
-//     {
-
-//     }bit;
-// }MCP23S17_flag_t;
+typedef union
+{
+    uint8_t flag;
+    struct
+    {
+        uint8_t INTA_Tigger :1;
+        uint8_t INTB_Tigger :1;
+    }bit;
+}MCP23S17_flag_t;
 
 typedef struct
 {
     MCP23S17_gpio_t CS;     // spi片选
+    MCP23S17_gpio_t INTA; // portA 中断
+    MCP23S17_gpio_t INTB; // portB 中断
     SPI_HandleTypeDef *spi; // 硬件spi
     int Timeout;            // spi超时时间
 } MCP23S17_conf_t;
@@ -200,6 +223,8 @@ typedef struct
 typedef struct
 {
     MCP23S17_gpio_t CS;     // 片选
+    MCP23S17_gpio_t INTA; // portA 中断
+    MCP23S17_gpio_t INTB; // portB 中断
     SPI_HandleTypeDef *spi; // 硬件spi
     int Timeout;
 } MCP23S17_Hardware_t;
@@ -207,7 +232,9 @@ typedef struct
 typedef struct
 {
     MCP23S17_Hardware_t Hardware; // 硬件配置
-
+    void (*intrA)(uint8_t gpio_mask); // 函数指针
+    void (*intrB)(uint8_t gpio_mask); // 函数指针
+    MCP23S17_flag_t flag; // 标志
 } MCP23S17_obj;
 
 typedef MCP23S17_obj *MCP23S17_Handle; // 句柄
